@@ -1,1 +1,110 @@
+`timescale 1ns / 1ps
 
+module traffic_system(
+    input wire clk,
+    input wire reset,
+
+    input wire EW_sensor,
+    input wire NS_sensor,
+
+    input wire emergency_NS,
+    input wire emergency_EW,
+
+    input wire ped_NS,
+    input wire ped_EW,
+
+    input wire maintenance_mode,
+
+    output wire NS_red,
+    output wire NS_yellow,
+    output wire NS_green,
+
+    output wire EW_red,
+    output wire EW_yellow,
+    output wire EW_green,
+
+    output wire pedestrian_green
+);
+
+wire [1:0] traffic_condition;
+
+wire emergency_active;
+wire emergency_override;
+wire [1:0] emergency_direction;
+
+wire [7:0] current_state;
+
+wire min_green_done;
+wire max_green_done;
+wire right_turn_done;
+wire yellow_done;
+wire all_red_done;
+wire emergency_buffer_done;
+wire emergency_restore_done;
+
+wire [1:0] emergency_dir;
+wire emergency_restore;
+
+sensor_decoder sensor(
+    .EW_sensor(EW_sensor),
+    .NS_sensor(NS_sensor),
+    .traffic_condition(traffic_condition)
+);
+
+emergency_controller emergency_ctrl(
+    .emergency_NS(emergency_NS),
+    .emergency_EW(emergency_EW),
+    .maintenance_mode(maintenance_mode),
+    .emergency_active(emergency_active),
+    .emergency_override(emergency_override),
+    .emergency_direction(emergency_direction)
+);
+
+traffic_fsm fsm(
+    .clk(clk),
+    .reset(reset),
+    .traffic_condition(traffic_condition),
+    .ped_request(ped_NS | ped_EW),
+    .emergency(emergency_active),
+    .min_green_done(min_green_done),
+    .max_green_done(max_green_done),
+    .right_turn_done(right_turn_done),
+    .yellow_done(yellow_done),
+    .all_red_done(all_red_done),
+    .ped_done(1'b0),
+    .emergency_buffer_done(emergency_buffer_done),
+    .emergency_direction(emergency_direction),
+    .emergency_dir(emergency_dir),
+    .emergency_restore_done(emergency_restore_done),
+    .emergency_restore(emergency_restore),
+    .current_state(current_state)
+);
+
+traffic_timer timer(
+    .clk(clk),
+    .reset(reset),
+    .current_state(current_state),
+    .emergency(emergency_active),
+    .emergency_restore(emergency_restore),
+    .min_green_done(min_green_done),
+    .max_green_done(max_green_done),
+    .right_turn_done(right_turn_done),
+    .yellow_done(yellow_done),
+    .all_red_done(all_red_done),
+    .emergency_buffer_done(emergency_buffer_done),
+    .emergency_restore_done(emergency_restore_done)
+);
+
+light_output_decode lights(
+    .state(current_state),
+    .emergency_dir(emergency_dir),
+    .NS_red(NS_red),
+    .NS_yellow(NS_yellow),
+    .NS_green(NS_green),
+    .EW_red(EW_red),
+    .EW_yellow(EW_yellow),
+    .EW_green(EW_green),
+    .pedestrian_green(pedestrian_green)
+);
+
+endmodule

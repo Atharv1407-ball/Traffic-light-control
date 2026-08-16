@@ -1,0 +1,55 @@
+`timescale 1ns / 1ps
+
+module emergency_controller(
+
+    input emergency_NS,
+    input emergency_EW,
+
+    input maintenance_mode,
+
+    output reg emergency_active,
+    output reg emergency_override,
+    output reg [1:0] emergency_direction
+
+);
+
+always@(*)begin
+casez({emergency_NS,emergency_EW,maintenance_mode})
+3'b??1:begin
+emergency_active=1'b0;
+emergency_override=1'b0;
+emergency_direction=2'b00;
+end
+
+3'b11?:begin
+emergency_active=1'b1;
+emergency_override=1'b1;
+emergency_direction=2'b01;
+end
+
+3'b10?:begin
+emergency_active=1'b1;
+emergency_override=1'b1;
+emergency_direction=2'b01;
+end
+
+3'b01?:begin
+emergency_active=1'b1;
+emergency_override=1'b1;
+emergency_direction=2'b10;
+end
+
+3'b00?:begin
+emergency_active=1'b0;
+emergency_override=1'b0;
+emergency_direction=2'b00;
+end
+
+default:begin
+emergency_active=1'b0;
+emergency_override=1'b0;
+emergency_direction=2'b00;
+end
+endcase
+end
+endmodule

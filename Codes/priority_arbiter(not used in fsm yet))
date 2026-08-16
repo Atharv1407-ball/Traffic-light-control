@@ -1,0 +1,51 @@
+`timescale 1ns / 1ps
+//not used in the fsm yet
+// 
+//////////////////////////////////////////////////////////////////////////////////
+//000 = No request
+//001 = NS traffic
+//010 = EW traffic
+//011 = NS pedestrian
+//100 = EW pedestrian
+//101 = NS emergency
+//110 = EW emergency
+//111 = Reserved
+
+module priority_arbiter(input emergency_NS,
+input emergency_EW,
+input ped_NS,
+input ped_EW,
+input [1:0] traffic_condition,
+output reg [2:0] grant
+);
+always@(*) begin
+if(emergency_NS==1'b1)begin
+grant=3'b101;
+end
+else if(emergency_EW==1'b1)begin
+grant=3'b110;
+end
+else if(ped_NS==1'b1)begin
+grant=3'b011;
+end
+else if(ped_EW==1'b1)begin
+grant=3'b100;
+end
+else if(traffic_condition==2'b00)begin
+grant=3'b000;
+end
+else if(traffic_condition==2'b01)begin
+grant=3'b001;
+end
+else if(traffic_condition==2'b10)begin
+grant=3'b010;
+end
+else if(traffic_condition==2'b11)begin
+grant=3'b001;
+end
+else begin
+grant=3'b000;
+end
+end
+
+endmodule

@@ -1,4 +1,4 @@
-`timescale 1s / 1ms
+`timescale 1ns / 1ps
 
 module testbenchi;
 
@@ -16,6 +16,8 @@ reg ped_EW;
 
 reg maintenance_mode;
 
+reg violation_sensor;
+
 wire NS_red;
 wire NS_yellow;
 wire NS_green;
@@ -25,6 +27,7 @@ wire EW_yellow;
 wire EW_green;
 
 wire pedestrian_green;
+wire violation_flag;
 
 
 // DUT
@@ -44,6 +47,8 @@ traffic_system uut(
 
     .maintenance_mode(maintenance_mode),
 
+    .violation_sensor(violation_sensor),
+
     .NS_red(NS_red),
     .NS_yellow(NS_yellow),
     .NS_green(NS_green),
@@ -52,7 +57,8 @@ traffic_system uut(
     .EW_yellow(EW_yellow),
     .EW_green(EW_green),
 
-    .pedestrian_green(pedestrian_green)
+    .pedestrian_green(pedestrian_green),
+    .violation_flag(violation_flag)
 );
 
 
@@ -76,11 +82,15 @@ initial begin
     ped_EW = 1'b0;
 
     maintenance_mode = 1'b0;
+    violation_sensor = 1'b0;
 
 
     // Reset
     #1;
     reset = 1'b0;
+
+    // Print NS_red / violation_sensor / violation_flag for the whole run
+    $monitor("t=%0t | NS_red=%b violation_sensor=%b violation_flag=%b", $time, NS_red, violation_sensor, violation_flag);
 
 
     // --------------------------------
@@ -150,6 +160,24 @@ initial begin
 
     #20;
 
+
+    // --------------------------------
+    // TEST 7: Red-light violation on NS
+    // --------------------------------
+
+    // Give EW the green so NS is forced to red
+    NS_sensor = 1'b0;
+    EW_sensor = 1'b1;
+    #20;   // wait for EW_GREEN, which means NS_red = 1
+
+    $display("--- NS should be RED now, sending a car through anyway ---");
+    violation_sensor = 1'b1;   // vehicle crosses NS stop line while NS is red
+    #1;
+    violation_sensor = 1'b0;   // car has passed
+    #3;                        // let violation_flag register on next clock edge
+
+    $display("--- clearing the sensor, flag should stay 0 for a clean approach ---");
+    #10;
 
     $finish;
 

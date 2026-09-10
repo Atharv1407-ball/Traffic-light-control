@@ -19,15 +19,18 @@ module traffic_fsm (
     input wire emergency_buffer_done,
     input wire [1:0] emergency_direction,
     output reg [1:0] emergency_dir,
-    input wire emergency_restore_done,
-    output reg emergency_restore,
+    // Exposed (was an internal reg) so traffic_timer can extend max-green
+    // for whichever direction was interrupted, instead of the FSM trying
+    // to hold itself in place combinationally (see note below).
+    output reg emergency_restore_pending,
     // Current one-hot state
-    output reg [7:0] current_state
+    output reg [7:0] current_state,
+    // Exposed so traffic_timer can detect an imminent transition on the
+    // SAME clock edge it happens, instead of one cycle late.
+    output reg [7:0] next_state
 );
-reg [7:0] next_state;
 reg all_red_to_ew;
 reg emergency_pending;
-reg emergency_restore_pending;
 reg ped_pending;
 localparam [7:0]
     NS_GREEN      = 8'b00000001,
@@ -72,7 +75,15 @@ always @(posedge clk or posedge reset) begin
         emergency_restore_pending <= 1'b0;
     else if (current_state == EMERGENCY && !emergency)
         emergency_restore_pending <= 1'b1;
-    else if (emergency_restore_done)
+    // Clear as soon as we're about to leave the (possibly extended) green
+    // phase, for ANY reason -- whether traffic_timer's extended max_green_done
+    // fired, or a normal right-turn condition took us out early. Using
+    // next_state here (available combinationally, same edge) avoids ever
+    // needing a "stay in this exact state" combinational self-loop, which
+    // is what caused a real simulation race in the previous version of
+    // this logic (emergency_restore toggled tens of thousands of times
+    // within a single time step and never settled).
+    else if ((current_state == NS_GREEN || current_state == EW_GREEN) && next_state != current_state)
         emergency_restore_pending <= 1'b0;
 end
 //always @(posedge clk or posedge reset) begin
@@ -85,15 +96,9 @@ end
 //end
 always@(*)begin
 next_state=current_state;
-emergency_restore = 1'b0;
 case(current_state)
 NS_GREEN:begin
-if (emergency_restore_pending && emergency_dir == 2'b10) begin
-        emergency_restore = 1'b1;
-        next_state = NS_GREEN;
-    end
-
-else if(!min_green_done)begin
+if(!min_green_done)begin
 next_state=NS_GREEN;
 end
 else if (emergency_pending) begin
@@ -145,11 +150,7 @@ ALL_RED: begin
     end
 end
 EW_GREEN:begin
-if (emergency_restore_pending && emergency_dir == 2'b01) begin
-        emergency_restore = 1'b1;
-        next_state = EW_GREEN;
-    end
-else if(!min_green_done)begin
+if(!min_green_done)begin
 next_state=EW_GREEN;
 end
 else if (emergency_pending) begin

@@ -35,4 +35,3 @@ default:traffic_condition=2'b11;
 endcase
 end
 endmodule
-

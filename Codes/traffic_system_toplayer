@@ -15,6 +15,8 @@ module traffic_system(
 
     input wire maintenance_mode,
 
+    input wire violation_sensor,   // NEW: basic sensor just past NS stop line
+
     output wire NS_red,
     output wire NS_yellow,
     output wire NS_green,
@@ -23,7 +25,9 @@ module traffic_system(
     output wire EW_yellow,
     output wire EW_green,
 
-    output wire pedestrian_green
+    output wire pedestrian_green,
+
+    output wire violation_flag     // NEW: 1 = vehicle crossed NS stop line on red
 );
 
 wire [1:0] traffic_condition;
@@ -33,6 +37,7 @@ wire emergency_override;
 wire [1:0] emergency_direction;
 
 wire [7:0] current_state;
+wire [7:0] next_state;   // NEW: exposed for same-edge timer reset detection
 
 wire min_green_done;
 wire max_green_done;
@@ -40,10 +45,9 @@ wire right_turn_done;
 wire yellow_done;
 wire all_red_done;
 wire emergency_buffer_done;
-wire emergency_restore_done;
 
 wire [1:0] emergency_dir;
-wire emergency_restore;
+wire emergency_restore_pending;
 
 sensor_decoder sensor(
     .EW_sensor(EW_sensor),
@@ -75,24 +79,25 @@ traffic_fsm fsm(
     .emergency_buffer_done(emergency_buffer_done),
     .emergency_direction(emergency_direction),
     .emergency_dir(emergency_dir),
-    .emergency_restore_done(emergency_restore_done),
-    .emergency_restore(emergency_restore),
-    .current_state(current_state)
+    .emergency_restore_pending(emergency_restore_pending),
+    .current_state(current_state),
+    .next_state(next_state)
 );
 
 traffic_timer timer(
     .clk(clk),
     .reset(reset),
     .current_state(current_state),
+    .next_state(next_state),
     .emergency(emergency_active),
-    .emergency_restore(emergency_restore),
+    .emergency_restore_pending(emergency_restore_pending),
+    .emergency_dir(emergency_dir),
     .min_green_done(min_green_done),
     .max_green_done(max_green_done),
     .right_turn_done(right_turn_done),
     .yellow_done(yellow_done),
     .all_red_done(all_red_done),
-    .emergency_buffer_done(emergency_buffer_done),
-    .emergency_restore_done(emergency_restore_done)
+    .emergency_buffer_done(emergency_buffer_done)
 );
 
 light_output_decode lights(
@@ -105,6 +110,15 @@ light_output_decode lights(
     .EW_yellow(EW_yellow),
     .EW_green(EW_green),
     .pedestrian_green(pedestrian_green)
+);
+
+// NEW: basic single-sensor red-light violation detector (NS direction only)
+violation_detector viol(
+    .clk(clk),
+    .reset(reset),
+    .NS_red(NS_red),
+    .violation_sensor(violation_sensor),
+    .violation_flag(violation_flag)
 );
 
 endmodule
